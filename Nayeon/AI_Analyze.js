@@ -1,6 +1,18 @@
 var brain = require("brain.js");
 var fs = require("fs");
 
+const mysql = require('mysql');
+
+const client = mysql.createConnection({
+    host: '127.0.0.1',
+    port: 3306,
+    user: 'root',
+    password: '!305sns!',
+    database: 'smashserver'
+});
+
+
+
 var net = new brain.NeuralNetwork({
     hiddenLayers: [5, 3],
     activation: 'sigmoid'
