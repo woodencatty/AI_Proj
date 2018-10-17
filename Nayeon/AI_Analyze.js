@@ -2,6 +2,15 @@ var brain = require("brain.js");
 var fs = require("fs");
 
 const mysql = require('mysql');
+var config = {};
+try {
+fs.readFile('PerfectSleep.json', 'utf8', function (err, data) {
+    console.log(data);
+    config = JSON.parse(data);
+});
+} catch (error) {
+    console.log(error);
+}
 
 const client = mysql.createConnection({
     host: '127.0.0.1',
@@ -57,7 +66,8 @@ module.exports = {
         });
 
     },
-    runAI: (TEMPERATURE, HUMIDITY, LIGHT, SOUND, POSE, MOVING_COUNT, SNORING_COUNT, SLEEP_CHECK, callback) => {
+    runAI: (TEMPERATURE, HUMIDITY, LIGHT, SOUND, POSE, MOVING_COUNT, SNORING_COUNT) => {
+
         var sleepDisorder = 0;
 
         var obj = JSON.parse(fs.readFileSync('network.json', 'utf8'));
@@ -79,14 +89,14 @@ module.exports = {
         if (sleepDisorder === output[0]) {
 
             let perfectsleep = {
-                TEMPERATURE: TEMPERATURE,
-                HUMIDITY: HUMIDITY,
-                LIGHT: LIGHT,
-                SOUND: SOUND,
+                TEMPERATURE: (config.TEMPERATURE + TEMPERATURE) / 2,
+                HUMIDITY: (config.HUMIDITY + HUMIDITY) / 2,
+                LIGHT: (config.LIGHT + LIGHT) / 2,
+                SOUND: (config.SOUND + SOUND) / 2,
                 POSE: POSE
             }
 
-            fs.writeFile("PerfectSleep.json", JSON.stringify(perfectsleep), function (err) {
+            fs.writeFile("PerfectSleep.json", JSON.stringify(perfectsleep),'utf8', function (err) {
                 if (err)
                     return console.log(err);
 
