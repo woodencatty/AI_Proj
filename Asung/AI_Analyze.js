@@ -1,44 +1,74 @@
 var brain = require("brain.js");
 var fs = require("fs");
+var request = require('request');
 
-var net = new brain.NeuralNetwork({
+
+var Train_net = new brain.NeuralNetwork({
     hiddenLayers: [5, 3],
     activation: 'sigmoid'
 });
 
-
-var jsn = { input: { material : 1, moist_start : 0.3, drytime : 60, try_temp : 80, air : 30}, output: { TargetReached : 1 } };
-
-console.log(jsn);
-
+var Test_net = new brain.NeuralNetwork();
 
 module.exports = {
-    saveAImodel: () => {
-        fs.writeFile("network.json", JSON.stringify(net.toJSON()), function (err) {
+
+    trainAI: (callback) => {
+        var trainSet = [];
+        var sleepDisorder = 0;
+
+
+        request(
+            {
+                method: 'GET'
+                , uri: '127.0.0.1:8080/ai/data/all'
+            }
+            , function (error, response, body) {
+                // body is the decompressed response body
+                console.log('server encoded the data as: ' + (response.headers['content-encoding'] || 'identity'));
+                console.log('the decoded data is: ' + body);
+            }
+        )
+            .on('data', function (data) {
+                
+                console.log('decoded chunk: ' + data);
+                let drydata = data.split('@');
+                for (var i in drydata) {
+                    let drydata_split = JSON.parse(drydata[i]);
+                    let isOK = 0;
+                    if(drydata_split.moist_now < drydata_split.moist_target){
+                        isOK = 1;
+                    }
+                    trainSet.push({ input: { meterial: drydata_split.material, moist_start: drydata_split.moist_start, dry_time: drydata_split.dry_time, dry_temp: drydata_split.dry_temp, air: drydata_split.air }, output: { isOK: isOK } });
+                }
+            })
+
+        Train_net.train(trainSet);
+
+        fs.writeFile("network.json", JSON.stringify(Train_net.toJSON()), function (err) {
             if (err)
                 return console.log(err);
-    
-            console.log("The file was saved");
+
+            console.log("The train file was saved");
         });
-    },
 
-    trainAI: () => {
-        
-net.train([{ input: { material : 1, moist_start : 0.3, drytime : 60, try_temp : 80, air : 30}, output: { TargetReached : 1 } },
-    { input: { material : 1, moist_start : 0.3, drytime : 60, try_temp : 80, air : 30}, output: { TargetUnReached : 1 } },
-    ]);
-    
     },
+    runAI: (material, moist_start, moist_now, dry_time, dry_time, air) => {
 
-    loadAImodel: () => {
+        var sleepDisorder = 0;
+
         var obj = JSON.parse(fs.readFileSync('network.json', 'utf8'));
-    net.fromJSON(obj);
-    console.log("file loaded");
-    },
+        Test_net.fromJSON(obj);
+        console.log("file loaded");
 
-    runAI: (callback) => {
-        var output = net.run({input: { Noise: -13, Temp: 97, Humi: -459, Lux: -13, Pose: 97 }});   // Walking Data
+       
+                    var output = net.run({ meterial: material, moist_start: moist_start, dry_time: dry_time, dry_temp: dry_temp, air: air });   // Data
 
-                callback(output);
+                   request.post({url:'127.0.0.1:8080/ai/save/analysisResult', formData: formData}, function optionalCallback(err, httpResponse, body) {
+                        if (err) {
+                          return console.error('upload failed:', err);
+                        }
+                        console.log('Upload successful!  Server responded with:', body);
+                      });
+      
     }
 }

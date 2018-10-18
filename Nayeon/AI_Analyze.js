@@ -2,11 +2,11 @@ var brain = require("brain.js");
 var fs = require("fs");
 
 const mysql = require('mysql');
-var config = {};
+var originPerfectSleep = {};
 try {
 fs.readFile('PerfectSleep.json', 'utf8', function (err, data) {
     console.log(data);
-    config = JSON.parse(data);
+    originPerfectSleep = JSON.parse(data);
 });
 } catch (error) {
     console.log(error);
@@ -89,10 +89,10 @@ module.exports = {
         if (sleepDisorder === output[0]) {
 
             let perfectsleep = {
-                TEMPERATURE: (config.TEMPERATURE + TEMPERATURE) / 2,
-                HUMIDITY: (config.HUMIDITY + HUMIDITY) / 2,
-                LIGHT: (config.LIGHT + LIGHT) / 2,
-                SOUND: (config.SOUND + SOUND) / 2,
+                TEMPERATURE: (originPerfectSleep.TEMPERATURE + TEMPERATURE) / 2,
+                HUMIDITY: (originPerfectSleep.HUMIDITY + HUMIDITY) / 2,
+                LIGHT: (originPerfectSleep.LIGHT + LIGHT) / 2,
+                SOUND: (originPerfectSleep.SOUND + SOUND) / 2,
                 POSE: POSE
             }
 
