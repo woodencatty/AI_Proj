@@ -2,6 +2,9 @@ var brain = require("brain.js");
 var fs = require("fs");
 var request = require('request');
 
+//예측해서 경광등으로 알려주자!
+//그럼 게이트웨이로 보내야하는데 게이트웨이 정보를 알아야하네?
+
 
 var Train_net = new brain.NeuralNetwork({
     hiddenLayers: [5, 3],
@@ -10,12 +13,11 @@ var Train_net = new brain.NeuralNetwork({
 
 var Test_net = new brain.NeuralNetwork();
 
-module.exports = {
+const http = require('http');
 
-    trainAI: (callback) => {
+
+    function trainAI(){
         var trainSet = [];
-        var sleepDisorder = 0;
-
 
         request(
             {
@@ -29,13 +31,13 @@ module.exports = {
             }
         )
             .on('data', function (data) {
-                
+
                 console.log('decoded chunk: ' + data);
                 let drydata = data.split('@');
                 for (var i in drydata) {
                     let drydata_split = JSON.parse(drydata[i]);
                     let isOK = 0;
-                    if(drydata_split.moist_now < drydata_split.moist_target){
+                    if (drydata_split.moist_now < drydata_split.moist_target) {
                         isOK = 1;
                     }
                     trainSet.push({ input: { meterial: drydata_split.material, moist_start: drydata_split.moist_start, dry_time: drydata_split.dry_time, dry_temp: drydata_split.dry_temp, air: drydata_split.air }, output: { isOK: isOK } });
@@ -51,24 +53,26 @@ module.exports = {
             console.log("The train file was saved");
         });
 
-    },
-    runAI: (material, moist_start, moist_now, dry_time, dry_time, air) => {
+    }
 
-        var sleepDisorder = 0;
+    function runAI(device, material, moist_start, moist_now, dry_time, dry_time, air){
+
 
         var obj = JSON.parse(fs.readFileSync('network.json', 'utf8'));
         Test_net.fromJSON(obj);
         console.log("file loaded");
 
-       
-                    var output = net.run({ meterial: material, moist_start: moist_start, dry_time: dry_time, dry_temp: dry_temp, air: air });   // Data
 
-                   request.post({url:'127.0.0.1:8080/ai/save/analysisResult', formData: formData}, function optionalCallback(err, httpResponse, body) {
-                        if (err) {
-                          return console.error('upload failed:', err);
-                        }
-                        console.log('Upload successful!  Server responded with:', body);
-                      });
-      
+        var output = net.run({ meterial: material, moist_start: moist_start, dry_time: dry_time, dry_temp: dry_temp, air: air });   // Data
+
+        request.post({ url: '127.0.0.1:8080/ai/save/analysisResult', formData: formData }, function optionalCallback(err, httpResponse, body) {
+            if (err) {
+                return console.error('upload failed:', err);
+            }
+            console.log('Upload successful!  Server responded with:', body);
+        });
+
     }
-}
+
+    
+AI_Server();
