@@ -16,7 +16,8 @@ function removeDuplicateAry(arr) {
     });
 }
 
-function sometime_train() {
+
+var sometime_train = setInterval(()=> {
 
     var Train_net = new brain.NeuralNetwork({
         hiddenLayers: [5, 3],
@@ -55,9 +56,9 @@ function sometime_train() {
         }
     });
 
-}
+}, 1000*60*60*24);
 
-var setTrainInterval = setInterval(()=>{
+var setTrainInterval = setInterval(() => {
 
     trainInterval(deviceID, Test_net);
     makeDeviceInterval();
@@ -69,15 +70,18 @@ var setTrainInterval = setInterval(()=>{
     console.log("file loaded");
     var Device_list = fs.readFileSync('device_list.json', 'utf8')
 
-    for(var i in Device_list){
+    for (var i in Device_list) {
 
         request('127.0.0.1:8080/ai/data/' + Device_list[i], function (error, response, body) {
             if (response.statusCode != 200) {
                 console.log('error:', error); // Print the error if one occurred
             } else {
-                var output = Test_net.run({ dryingTemp: body[i].dryingTemp, moistureRatio: body[i].moistureRatio, dewPoint: body[i].dewPoint, regenTemp: body[i].regenTemp});   // Data
+                var output = Test_net.run({ dryingTemp: body[i].dryingTemp, moistureRatio: body[i].moistureRatio, dewPoint: body[i].dewPoint, regenTemp: body[i].regenTemp });   // Data
 
-                if(output){}
+                if (output.isOK < 0.7) {
+
+                    request.post('127.0.0.1:8080/ai/save/analysisResult', { form: { dryID: Device_list[i], isOK: false } });
+                }
 
             }
         });
@@ -85,23 +89,4 @@ var setTrainInterval = setInterval(()=>{
 
 
 
-}, 1000*60)
-
-
-sometime_train();
-
-/*
-setInterval(() => {
-
-
-
-    sometime_train();
-
-    if ("new device added" == 1) {
-        makeDeviceInterval(deviceID);
-    }
-
-}, 1000 * 60 * 60 * 24);
-
-
-*/
+}, 1000 * 60)
