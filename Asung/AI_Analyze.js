@@ -1,92 +1,81 @@
-var request = require('request');
+var brain = require("brain.js");
 var fs = require("fs");
 
+const mysql = require('mysql');
 
-//예측해서 경광등으로 알려주자!
-//그럼 게이트웨이로 보내야하는데 게이트웨이 정보를 알아야하네?
-//답이없네 이거
+const client = mysql.createConnection({
+    host: '127.0.0.1',
+    port: 3306,
+    user: 'root',
+    password: '1234',
+    database: 'sleep_info_db'
+});
 
+var Train_net = new brain.NeuralNetwork({
+    hiddenLayers: [5, 3],
+    activation: 'sigmoid'
+});
 
-function removeDuplicateAry(arr) {
-    let hashTable = {};
-    return arr.filter((el) => {
-        let key = JSON.stringify(el);
-        let alreadyExist = !!hashTable[key];
-        return (alreadyExist ? false : hashTable[key] = true);
-    });
+var Test_net = new brain.NeuralNetwork();
+
+  function trainAI(){
+        var trainSet = [];
+        client.query('SELECT dry_id, material FROM dry_machine', (err, rows) => {
+            if (err) {
+                console.log(err);
+                callback(err);
+            } else {
+                for(var i in rows){
+                    client.query('SELECT dew_point, drying_temp, moisture_ratio, regen_temp FROM dry_machine WHERE dry_id="'+rows[i].dry_id+'"', (err, rows2) => {
+                        if (err) {
+                            console.log(err);
+                            callback(err);
+                        } else {
+                            for(var i in rows2){
+                                trainSet.push({ input: { dry_id : rows[i].dry_id, material : rows[i].material, dew_point : rows2[i].dew_point, drying_temp : rows2[i].drying_temp, moisture_ratio : rows2[i].moisture_ratio, regen_temp : rows2[i].regen_temp}, output: { error_state : rows2[i].error_state } });
+                            }
+                        }
+                    });
+                }
+            }
+        });
+        
+        Train_net.train(trainSet);
+
+    }
+    function runAI(dry_id, material, dew_point, drying_temp, moisture_ratio, regen_temp){
+
+        client.query('SELECT dry_id, material FROM dry_machine', (err, rows) => {
+            if (err) {
+                console.log(err);
+                callback(err);
+            } else {
+                for(var i in rows){
+                    client.query('SELECT dew_point, drying_temp, moisture_ratio, regen_temp FROM dry_machine WHERE dry_id="'+rows[i].dry_id+'" ORDERBY date DESC limit 1', (err, rows2) => {
+                        if (err) {
+                            console.log(err);
+                            callback(err);
+                        } else {
+                            for(var i in rows2){
+                                var output = net.run( { dry_id : rows[i].dry_id, material : rows[i].material, dew_point : rows2[i].dew_point, drying_temp : rows2[i].drying_temp, moisture_ratio : rows2[i].moisture_ratio, regen_temp : rows2[i].regen_temp});
+                                if(output == true){
+                                    //에러메세지 전송
+                                }else if(output == false){
+                                    //do nothing
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        });
 }
 
 
-var sometime_train = setInterval(()=> {
+setImmediate(()=>{
+trainAI();
+}, 3600000)
 
-    var Train_net = new brain.NeuralNetwork({
-        hiddenLayers: [5, 3],
-        activation: 'sigmoid'
-    });
-
-    let Train_set = [];
-    let Device_list = [];
-
-    request('127.0.0.1:8080/ai/data/all', function (error, response, body) {
-        if (response.statusCode != 200) {
-            console.log('error:', error); // Print the error if one occurred
-        } else {
-            for (var i in body) {
-
-                Device_list.push(body[i].dryID);
-
-                Train_set.push({ input: { dryingTemp: body[i].dryingTemp, moistureRatio: body[i].moistureRatio, dewPoint: body[i].dewPoint, regenTemp: body[i].regenTemp }, output: { isOK: body[i].isOK } })
-            }
-            Train_net.train(trainSet);
-
-            fs.writeFile("network.json", JSON.stringify(Train_net.toJSON()), function (err) {
-                if (err)
-                    return console.log(err);
-
-                console.log("The train file was saved");
-            });
-
-            fs.writeFile("device_list.json", removeDuplicateAry(Device_list), function (err) {
-                if (err)
-                    return console.log(err);
-
-                console.log("The train file was saved");
-            });
-
-        }
-    });
-
-}, 1000*60*60*24);
-
-var setTrainInterval = setInterval(() => {
-
-    trainInterval(deviceID, Test_net);
-    makeDeviceInterval();
-
-    var Test_net = new brain.NeuralNetwork();
-
-    var obj = JSON.parse(fs.readFileSync('network.json', 'utf8'));
-    Test_net.fromJSON(obj);
-    console.log("file loaded");
-    var Device_list = fs.readFileSync('device_list.json', 'utf8')
-
-    for (var i in Device_list) {
-
-        request('127.0.0.1:8080/ai/data/' + Device_list[i], function (error, response, body) {
-            if (response.statusCode != 200) {
-                console.log('error:', error); // Print the error if one occurred
-            } else {
-                var output = Test_net.run({ dryingTemp: body[i].dryingTemp, moistureRatio: body[i].moistureRatio, dewPoint: body[i].dewPoint, regenTemp: body[i].regenTemp });   // Data
-
-                if (output.isOK < 0.7) {
-
-                    request.post('127.0.0.1:8080/ai/save/analysisResult', { form: { dryID: Device_list[i], isOK: false } });
-                }
-
-            }
-        });
-    }
-
-
-
-}, 1000 * 60)
+setInterval(()=>{
+runAI();
+}, 5000)
