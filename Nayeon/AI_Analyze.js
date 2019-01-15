@@ -26,45 +26,48 @@ var Train_net = new brain.NeuralNetwork({
 });
 
 var Test_net = new brain.NeuralNetwork();
+    
+    module.exports = {
+    
+        trainAI: ()=>{
 
-module.exports = {
-
-    trainAI: (callback) => {
-        var trainSet = [];
-        var sleepDisorder = 0;
-        client.query('SELECT TEMPERATURE, HUMIDITY, LIGHT, SOUND, POSE, MOVING_COUNT, SNORING_COUNT, SLEEP_CHECK FROM SLEEP_INFO', (err, rows) => {
-            if (err) {
-                console.log(err);
-                callback(err);
-            } else {
-                if (SLEEP_CHECK == true) {
-                    for (var i in rows) {
-                        if (rows[i].MOVING_COUNT > 1) {
-                            if (rows[i].SNORING_COUNT > 1) {
-                                sleepDisorder = 1
-                            } else {
-                                sleepDisorder = 1
-                            }
-                        } else if (rows[i].SNORING_COUNT > 1) {
+        
+    
+    var trainSet = [];
+    var sleepDisorder = 0;
+    client.query('SELECT TEMPERATURE, HUMIDITY, LIGHT, SOUND, POSE, MOVING_COUNT, SNORING_COUNT, SLEEP_CHECK FROM SLEEP_INFO', function (err, rows) {
+        if (err) {
+            console.log(err);
+        } else {
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].SLEEP_CHECK == 0) {
+                    if (rows[i].MOVING_COUNT > 4) {
+                        if (rows[i].SNORING_COUNT > 4) {
+                            sleepDisorder = 1
+                        } else {
                             sleepDisorder = 1
                         }
-                        trainSet.push({ input: { TEMPERATURE: rows[i].TEMPERATURE, HUMIDITY: rows[i].HUMIDITY, LIGHT: rows[i].LIGHT, SOUND: rows[i].SOUND, POSE: rows[i].POSE }, output: { sleepDisorder: sleepDisorder } });
+                    } else if (rows[i].SNORING_COUNT > 4) {
+                        sleepDisorder = 1
                     }
                 }
+                trainSet[i] = { input: [rows[i].TEMPERATURE, rows[i].HUMIDITY, rows[i].LIGHT, rows[i].SOUND, rows[i].POSE], output: [sleepDisorder] };
+    
             }
-        });
-        /*  var trainSet = [{ input: { material : 1, moist_start : 0.3, drytime : 60, try_temp : 80, air : 30}, output: { sleepDisorder : 1 } },
-                { input: { material : 1, moist_start : 0.3, drytime : 60, try_temp : 80, air : 30}, output: { sleepDisorder : 2 } }];
-        */
-        Train_net.train(trainSet);
-
-        fs.writeFile("network.json", JSON.stringify(Train_net.toJSON()), function (err) {
-            if (err)
-                return console.log(err);
-
-            console.log("The train file was saved");
-        });
-
+            console.log(trainSet);
+            client.destroy();
+            console.log("train");
+            Train_net.train(trainSet);
+            console.log("trained");
+            fs.writeFile("network.json", JSON.stringify(Train_net.toJSON()), function (err) {
+                if (err)
+                    return console.log(err);
+                console.log("The train file was saved");
+    
+            });
+        }
+    });
+    
     },
     runAI: (TEMPERATURE, HUMIDITY, LIGHT, SOUND, POSE, MOVING_COUNT, SNORING_COUNT) => {
 
@@ -73,7 +76,7 @@ module.exports = {
         var obj = JSON.parse(fs.readFileSync('network.json', 'utf8'));
         Test_net.fromJSON(obj);
         console.log("file loaded");
-
+    
         if (MOVING_COUNT > 1) {
             if (SNORING_COUNT > 1) {
                 sleepDisorder = 1
@@ -83,11 +86,11 @@ module.exports = {
         } else if (SNORING_COUNT > 1) {
             sleepDisorder = 1
         }
-
-        var output = net.run({ TEMPERATURE: TEMPERATURE, HUMIDITY: HUMIDITY, LIGHT: LIGHT, SOUND: SOUND, POSE: POSE });   // Data
-
+    
+        var output = Test_net.run([TEMPERATURE, HUMIDITY, LIGHT, SOUND, POSE]);   // Data
+    
         if (sleepDisorder === output[0]) {
-
+    
             let perfectsleep = {
                 TEMPERATURE: (originPerfectSleep.TEMPERATURE + TEMPERATURE) / 2,
                 HUMIDITY: (originPerfectSleep.HUMIDITY + HUMIDITY) / 2,
@@ -95,14 +98,15 @@ module.exports = {
                 SOUND: (originPerfectSleep.SOUND + SOUND) / 2,
                 POSE: POSE
             }
-
+    
             fs.writeFile("PerfectSleep.json", JSON.stringify(perfectsleep),'utf8', function (err) {
                 if (err)
                     return console.log(err);
-
+    
                 console.log("The perfect sleep file was saved");
             });
         }
-
+    
     }
 }
+ 
